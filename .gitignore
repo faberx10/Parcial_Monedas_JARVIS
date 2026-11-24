@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Datos pesados de entrenamiento (se regeneran con 01_ y 02_)
+vision/dataset_det/
+vision/dataset_det_crudo/
+vision/dataset_crudo/
+vision/dataset/
+vision/runs/
+vision/capturas/
+
+# Pesos: solo se sube el modelo final
+*.pt
+!vision/modelos/monedas_det.pt
+
+# PlatformIO / editores
+.pio/
+.vscode/
+*.code-workspace
+
+# Claves y secretos (la clave de Gemini vive en ~/.jarvis_g3/, fuera del repo)
+.env
+*.key
+gemini_key.txt
+.jarvis_g3/

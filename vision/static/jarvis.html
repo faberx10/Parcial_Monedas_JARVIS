@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>J.A.R.V.I.S. · Logística de Monedas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#02070f; --panel:rgba(7,22,38,.70); --panel2:rgba(10,30,50,.78);
+  --line:rgba(62,232,255,.20); --line2:rgba(62,232,255,.45);
+  --cyan:#3ee8ff; --cyan2:#a6f6ff; --cyan-dim:rgba(62,232,255,.10);
+  --text:#d8f5ff; --muted:#7ea6ba; --faint:#466476;
+  --gold:#ffc65c; --gold2:#ffe2a0; --red:#ff4d6a; --green:#3dffb4; --amber:#ffb347;
+  --f-hud:Orbitron,Rajdhani,system-ui,sans-serif; --f-txt:Rajdhani,system-ui,sans-serif; --f-mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg)}
+body{
+  min-height:100vh;color:var(--text);font:500 15px/1.35 var(--f-txt);letter-spacing:.2px;
+  background:
+    radial-gradient(900px 520px at 50% 18%, rgba(30,140,200,.16), transparent 70%),
+    radial-gradient(700px 500px at 10% 90%, rgba(0,90,140,.12), transparent 70%),
+    linear-gradient(rgba(62,232,255,.035) 1px, transparent 1px) 0 0/34px 34px,
+    linear-gradient(90deg, rgba(62,232,255,.035) 1px, transparent 1px) 0 0/34px 34px,
+    var(--bg);
+  overflow-x:hidden;
+}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px);
+  mix-blend-mode:screen}
+.wrap{max-width:1680px;margin:0 auto;padding:16px 20px 26px}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* ---------- encabezado ---------- */
+header{display:flex;align-items:center;gap:18px;margin-bottom:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.reactor{width:44px;height:44px;border-radius:50%;position:relative;flex:none;
+  background:radial-gradient(circle, #fff 0 12%, var(--cyan2) 20%, var(--cyan) 34%, rgba(62,232,255,.15) 60%, transparent 70%);
+  box-shadow:0 0 18px rgba(62,232,255,.65), inset 0 0 10px rgba(62,232,255,.6);animation:respira 3.2s ease-in-out infinite}
+.reactor::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px dashed rgba(62,232,255,.55);animation:gira 12s linear infinite}
+@keyframes respira{50%{box-shadow:0 0 30px rgba(62,232,255,.9), inset 0 0 14px rgba(62,232,255,.8)}}
+@keyframes gira{to{transform:rotate(360deg)}}
+.brand h1{font:800 22px/1 var(--f-hud);letter-spacing:6px;color:var(--cyan2);text-shadow:0 0 12px rgba(62,232,255,.55)}
+.brand p{font:600 11px/1.2 var(--f-hud);letter-spacing:2.2px;color:var(--muted);margin-top:6px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;flex:1;justify-content:center}
+.chip{display:flex;align-items:center;gap:7px;padding:6px 11px;border:1px solid var(--line);background:rgba(4,16,28,.7);
+  font:600 10.5px var(--f-hud);letter-spacing:1.4px;color:var(--muted);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.chip i{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.chip.on{color:var(--cyan2);border-color:var(--line2)}
+.chip.on i{background:var(--green);box-shadow:0 0 8px var(--green)}
+.chip.off i{background:var(--red);box-shadow:0 0 8px var(--red);animation:parp 1.2s infinite}
+.chip.na{opacity:.45}
+@keyframes parp{50%{opacity:.25}}
+.reloj{text-align:right;font-family:var(--f-mono)}
+.reloj b{display:block;font:600 22px var(--f-mono);color:var(--cyan2);letter-spacing:2px}
+.reloj small{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.btn{border:1px solid var(--line2);background:rgba(62,232,255,.06);padding:8px 13px;font:700 11px var(--f-hud);letter-spacing:1.5px;color:var(--cyan2);
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);transition:.15s}
+.btn:hover{background:rgba(62,232,255,.18);color:#fff}
+.btn.rojo{border-color:rgba(255,77,106,.6);color:#ff9fb0;background:rgba(255,77,106,.08)}
+.btn.rojo:hover{background:rgba(255,77,106,.2)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+
+/* ---------- paneles ---------- */
+.grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(400px,1.08fr) minmax(300px,1fr);gap:14px;align-items:start}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.grid>*,.doble>*,.panel{min-width:0}
+.panel{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);padding:14px 14px 13px;
+  clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);backdrop-filter:blur(3px)}
+.panel::before,.panel::after{content:"";position:absolute;width:18px;height:18px;border:2px solid var(--cyan);opacity:.75;pointer-events:none}
+.panel::before{top:4px;right:4px;border-left:0;border-bottom:0}
+.panel::after{bottom:4px;left:4px;border-right:0;border-top:0}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px}
+.ph h2{font:700 11.5px var(--f-hud);letter-spacing:2.4px;color:var(--cyan);display:flex;align-items:center;gap:8px}
+.ph h2::before{content:"";width:6px;height:6px;background:var(--cyan);box-shadow:0 0 8px var(--cyan);transform:rotate(45deg)}
+.ph small{font:500 11px var(--f-mono);color:var(--muted)}
+.etq{font:600 10px var(--f-hud);letter-spacing:1.6px;color:var(--muted);text-transform:uppercase}
+.vacio{font-size:13.5px;color:var(--faint);padding:8px 2px}
+
+/* ---------- camara ---------- */
+.video{position:relative;aspect-ratio:4/3;background:#01050a;overflow:hidden;border:1px solid var(--line)}
+.video img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9) contrast(1.05)}
+.video .esq{position:absolute;width:26px;height:26px;border:2px solid var(--cyan);opacity:.9}
+.video .e1{top:8px;left:8px;border-right:0;border-bottom:0}.video .e2{top:8px;right:8px;border-left:0;border-bottom:0}
+.video .e3{bottom:8px;left:8px;border-right:0;border-top:0}.video .e4{bottom:8px;right:8px;border-left:0;border-top:0}
+.video .barrido{position:absolute;left:0;right:0;height:60px;top:-60px;
+  background:linear-gradient(180deg,transparent,rgba(62,232,255,.10),transparent);animation:barre 4.5s linear infinite}
+@keyframes barre{to{top:100%}}
+.video .rec{position:absolute;top:12px;left:42px;font:700 10px var(--f-hud);letter-spacing:1.5px;color:#ffd0d8;display:flex;gap:6px;align-items:center}
+.video .rec i{width:7px;height:7px;border-radius:50%;background:var(--red);animation:parp 1.4s infinite}
+.video .sin{position:absolute;inset:0;display:none;place-items:center;font:700 13px var(--f-hud);letter-spacing:2px;color:#ff9fb0;background:rgba(2,7,15,.75)}
+.video.off .sin{display:grid}
+.hint{margin-top:9px;font-size:14px;color:var(--muted);min-height:19px}
+.hint.ok{color:#8fffd2}.hint.conf{color:var(--gold2)}
+
+.vlist{display:flex;flex-direction:column;gap:6px;max-height:170px;overflow:auto}
+.vrow{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:6px 8px;background:rgba(62,232,255,.04);border:1px solid var(--line)}
+.vrow b{font-weight:700;font-size:15px}.vrow small{display:block;color:var(--muted);font-size:12px}
+.vrow .est{font:700 10px var(--f-hud);letter-spacing:1px}
+.vrow .est.ok{color:var(--green)}.vrow .est.wait{color:var(--gold)}
+.tot{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px}
+.tot .n{font:700 30px/1.05 var(--f-hud);color:var(--text)}
+.tot .n.oro{color:var(--gold);text-shadow:0 0 14px rgba(255,198,92,.35)}
+.tot .n small{font-size:14px;color:var(--muted);margin-left:3px}
+
+/* ---------- moneda visual ---------- */
+.coin{--c1:#E3C271;--c2:#E3C271;border-radius:50%;display:grid;place-items:center;color:#271f10;font:800 11px var(--f-txt);position:relative;flex:none;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.55),transparent 42%),radial-gradient(circle,var(--c1) 0 55%,var(--c2) 56% 100%);
+  box-shadow:inset 0 0 0 2px rgba(0,0,0,.25),0 0 12px rgba(255,198,92,.18)}
+.coin .tag{position:absolute;bottom:9%;font-size:.5em;opacity:.7;letter-spacing:.4px}
+
+/* ---------- nucleo JARVIS ---------- */
+.nucleo{padding:8px 10px 10px}
+.nucleo canvas{width:100%;aspect-ratio:1/.86;display:block}
+.nuc-estado{position:absolute;left:0;right:0;bottom:16px;text-align:center;pointer-events:none}
+.nuc-estado b{font:700 13px var(--f-hud);letter-spacing:5px;color:var(--cyan2);text-shadow:0 0 10px rgba(62,232,255,.6)}
+.nuc-estado small{display:block;font:500 11px var(--f-mono);color:var(--muted);margin-top:4px}
+.nuc-titulo{position:absolute;top:12px;left:16px;font:700 11px var(--f-hud);letter-spacing:2.4px;color:var(--cyan)}
+.nuc-modelo{position:absolute;top:12px;right:18px;font:500 11px var(--f-mono);color:var(--muted);text-align:right}
+
+/* ---------- chat ---------- */
+.chat{display:flex;flex-direction:column;gap:10px}
+.conv{height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding-right:4px;scroll-behavior:smooth}
+.msg{max-width:92%;padding:9px 12px;font-size:15.5px;line-height:1.42;white-space:pre-wrap;word-wrap:break-word;animation:entra .25s ease}
+@keyframes entra{from{opacity:0;transform:translateY(5px)}}
+.msg.yo{align-self:flex-end;background:rgba(62,232,255,.08);border:1px solid var(--line2);color:var(--cyan2)}
+.msg.jv{align-self:flex-start;background:rgba(255,255,255,.025);border-left:2px solid var(--cyan);padding-left:13px}
+.msg.jv::before{content:"J.A.R.V.I.S.";display:block;font:700 9.5px var(--f-hud);letter-spacing:2px;color:var(--cyan);margin-bottom:4px}
+.msg.sis{align-self:center;font:600 11px var(--f-hud);letter-spacing:1.2px;color:var(--muted);padding:4px 10px;border:1px dashed var(--line)}
+.msg.sis.ok{color:var(--green);border-color:rgba(61,255,180,.35)}.msg.sis.mal{color:#ff9fb0;border-color:rgba(255,77,106,.4)}
+.msg.interino{opacity:.65;font-style:italic}
+.escribe span{display:inline-block;width:6px;height:6px;margin-right:4px;border-radius:50%;background:var(--cyan);animation:salta 1s infinite}
+.escribe span:nth-child(2){animation-delay:.15s}.escribe span:nth-child(3){animation-delay:.3s}
+@keyframes salta{50%{transform:translateY(-5px);opacity:.4}}
+.entrada{display:flex;gap:9px;align-items:center}
+.mic{width:56px;height:56px;border-radius:50%;flex:none;border:2px solid var(--cyan);background:radial-gradient(circle,rgba(62,232,255,.25),rgba(62,232,255,.05) 70%);
+  display:grid;place-items:center;transition:.2s;position:relative}
+.mic svg{width:24px;height:24px;fill:var(--cyan2)}
+.mic:hover{box-shadow:0 0 18px rgba(62,232,255,.55)}
+.mic.on{border-color:var(--red);background:radial-gradient(circle,rgba(255,77,106,.4),rgba(255,77,106,.08) 70%);animation:late 1s infinite}
+.mic.on svg{fill:#ffd0d8}
+@keyframes late{50%{box-shadow:0 0 0 9px rgba(255,77,106,.14)}}
+.entrada input{flex:1;min-width:0;background:rgba(2,10,18,.8);border:1px solid var(--line2);color:var(--text);padding:12px 13px;font:500 15.5px var(--f-txt);outline:none}
+.entrada input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(62,232,255,.12)}
+.ajustes{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.sw{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.sw input{display:none}
+.sw i{width:30px;height:16px;border-radius:9px;background:#14303f;position:relative;transition:.2s;border:1px solid var(--line)}
+.sw i::after{content:"";position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--muted);transition:.2s}
+.sw input:checked+i{background:rgba(62,232,255,.3)}
+.sw input:checked+i::after{left:16px;background:var(--cyan2);box-shadow:0 0 6px var(--cyan)}
+.ajustes select{background:#061420;color:var(--text);border:1px solid var(--line);padding:4px 6px;font:500 12.5px var(--f-txt);max-width:220px}
+.sugerencias{display:flex;gap:6px;flex-wrap:wrap}
+.sugerencias button{border:1px solid var(--line);background:rgba(62,232,255,.04);padding:4px 9px;font-size:12.5px;color:var(--muted)}
+.sugerencias button:hover{color:var(--cyan2);border-color:var(--line2)}
+
+/* clave */
+.clave{border:1px solid rgba(255,198,92,.45);background:rgba(255,198,92,.06);padding:11px 12px;font-size:14px;color:var(--gold2);display:none}
+.clave.ver{display:block}
+.clave ol{margin:6px 0 8px 18px;color:var(--text)}
+.clave a{color:var(--cyan2)}
+.clave .fila{display:flex;gap:8px}
+.clave input{flex:1;min-width:0;background:#02080f;border:1px solid var(--line2);color:var(--text);padding:8px 10px;font:500 14px var(--f-mono)}
+
+/* ---------- carrito ---------- */
+.car{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;align-items:center}
+.pad{display:grid;grid-template-columns:repeat(3,52px);grid-auto-rows:52px;gap:6px}
+.pad button{border:1px solid var(--line2);background:rgba(62,232,255,.05);color:var(--cyan2);font:700 18px var(--f-txt);touch-action:none;user-select:none;-webkit-user-select:none;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);transition:.1s}
+.pad button:hover{background:rgba(62,232,255,.15)}
+.pad button.on{background:var(--cyan);color:#012;box-shadow:0 0 16px var(--cyan)}
+.pad button.stop{font:800 9.5px var(--f-hud);letter-spacing:1px;color:#ff9fb0;border-color:rgba(255,77,106,.6);background:rgba(255,77,106,.08)}
+.car-info{display:flex;flex-direction:column;gap:8px;min-width:0}
+.car-dir{font:700 18px var(--f-hud);letter-spacing:1px;color:var(--cyan2);text-transform:uppercase}
+.car-dir.mueve{color:var(--green);text-shadow:0 0 10px rgba(61,255,180,.4)}
+.car-sub{font-size:13px;color:var(--muted)}
+.rango{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.rango input{flex:1;min-width:0;width:100%;accent-color:var(--cyan)}
+.rango b{font:600 13px var(--f-mono);color:var(--cyan2);min-width:42px;text-align:right}
+.inactivo{opacity:.4;pointer-events:none}
+
+/* ---------- servos ---------- */
+.banda{display:flex;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap}
+.banda .rango{flex:1;min-width:150px}
+.servos{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.sv{border:1px solid var(--line);background:rgba(62,232,255,.03);padding:9px 10px 8px;position:relative;transition:.25s}
+.sv.activo{border-color:var(--gold);background:rgba(255,198,92,.09);box-shadow:0 0 18px rgba(255,198,92,.22) inset}
+.sv.espera{border-color:rgba(255,198,92,.45)}
+.sv-cab{display:flex;justify-content:space-between;align-items:baseline}
+.sv-cab b{font:800 15px var(--f-hud);color:var(--cyan2)}
+.sv-cab span{font:700 9px var(--f-hud);letter-spacing:1.2px;color:var(--muted)}
+.sv.activo .sv-cab span{color:var(--gold)}
+.sv-vaso{font-size:12.5px;color:var(--muted);margin:2px 0 4px}
+.sv svg{width:100%;height:54px;display:block}
+.sv-pie{display:flex;justify-content:space-between;align-items:center;font:500 11.5px var(--f-mono);color:var(--muted)}
+.sv-pie button{border:1px solid var(--line);background:transparent;color:var(--cyan2);font:700 9px var(--f-hud);letter-spacing:1px;padding:3px 7px}
+.sv-pie button:hover{background:rgba(62,232,255,.12)}
+
+/* ---------- contadores ---------- */
+.cont{display:grid;grid-template-columns:repeat(9,1fr);gap:10px;margin:14px 0}
+.cnt{border:1px solid var(--line);background:linear-gradient(180deg,rgba(10,30,50,.75),rgba(5,16,28,.7));padding:11px 8px 9px;display:flex;flex-direction:column;align-items:center;gap:5px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);transition:.3s}
+.cnt .coin{width:46px;height:46px;font-size:13px}
+.cnt .nom{font-size:12.5px;color:var(--muted);text-align:center;line-height:1.1}
+.cnt .n{font:700 24px var(--f-hud);color:var(--text)}
+.cnt .g{font:500 10.5px var(--f-mono);color:var(--faint)}
+.cnt.bump{animation:bump .7s ease}
+@keyframes bump{30%{transform:translateY(-4px);border-color:var(--gold);box-shadow:0 0 18px rgba(255,198,92,.35)}}
+
+.doble{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
+.hist{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.ev{flex:none;width:112px;border:1px solid var(--line);background:rgba(62,232,255,.03);padding:6px;animation:entra .3s}
+.ev img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.ev b{display:block;font-size:13px;margin-top:5px}.ev small{font:500 10.5px var(--f-mono);color:var(--muted)}
+.bit{height:178px;overflow-y:auto;font:500 12.5px/1.5 var(--f-mono);display:flex;flex-direction:column;gap:2px}
+.bit div{display:grid;grid-template-columns:62px 70px 1fr;gap:6px;color:var(--text);animation:entra .3s}
+.bit .h{color:var(--faint)}
+.bit .t{font:700 9.5px var(--f-hud);letter-spacing:1px;padding-top:3px}
+.t-moneda{color:var(--gold)}.t-servo{color:#ffb38a}.t-carrito{color:var(--green)}.t-conexion{color:#ff9fb0}
+.t-banda{color:#c7a6ff}.t-jarvis{color:var(--cyan)}.t-sistema{color:var(--muted)}
+
+footer{margin-top:14px;display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--faint)}
+footer a{color:var(--muted)}
+
+.toast{position:fixed;top:16px;left:50%;transform:translate(-50%,-140%);padding:10px 18px;border:1px solid var(--gold);background:rgba(20,16,6,.92);
+  font:700 13px var(--f-hud);letter-spacing:1.2px;color:var(--gold2);z-index:60;transition:transform .35s cubic-bezier(.2,.9,.3,1.2)}
+.toast.ver{transform:translate(-50%,0)}
+
+@media (max-width:1280px){.grid{grid-template-columns:1fr 1fr}.col.centro{grid-column:1 / -1;order:-1}.cont{grid-template-columns:repeat(5,1fr)}}
+@media (max-width:820px){.pad{grid-template-columns:repeat(3,46px);grid-auto-rows:46px}.grid,.doble{grid-template-columns:minmax(0,1fr)}.wrap{padding:12px}.cont{grid-template-columns:repeat(3,1fr)}
+  .brand h1{font-size:18px}.chips{justify-content:flex-start}.conv{height:260px}.servos{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="toast" id="toast"></div>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="reactor"></div>
+      <div><h1>J.A.R.V.I.S.</h1><p>LOGÍSTICA DE MONEDAS INTELIGENTES · GRUPO 3 · UMNG</p></div>
+    </div>
+    <div class="chips">
+      <div class="chip" id="ch-cam"><i></i>CÁMARA</div>
+      <div class="chip" id="ch-ia"><i></i>VISIÓN IA</div>
+      <div class="chip" id="ch-s3"><i></i>SERVOS S3</div>
+      <div class="chip" id="ch-car"><i></i>CARRITO</div>
+      <div class="chip" id="ch-gem"><i></i>CEREBRO IA</div>
+      <div class="chip na" id="ch-dron"><i></i>DRON · SIN DATOS</div>
+    </div>
+    <div class="reloj"><b id="hora">--:--:--</b><small id="fecha"></small></div>
+    <button class="btn" id="reset">REINICIAR CONTEO</button>
+  </header>
+
+  <main class="grid">
+    <!-- ============ IZQUIERDA: vision ============ -->
+    <section class="col izq">
+      <div class="panel">
+        <div class="ph"><h2>VISIÓN · ESP32-CAM</h2><small id="fps">— fps</small></div>
+        <div class="video" id="video-box">
+          <img id="video" src="/video" alt="Video en vivo de la ESP32-CAM con las detecciones">
+          <div class="barrido"></div>
+          <span class="esq e1"></span><span class="esq e2"></span><span class="esq e3"></span><span class="esq e4"></span>
+          <div class="rec"><i></i>EN VIVO</div>
+          <div class="sin">SIN SEÑAL DE LA CÁMARA</div>
+        </div>
+        <div class="hint" id="hint">Esperando monedas en la banda…</div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>EN VISTA AHORA</h2><small id="vista-v">$0</small></div>
+        <div class="vlist" id="vista"><div class="vacio">No hay monedas frente a la cámara.</div></div>
+      </div>
+      <div class="panel">
+        <div class="ph"><h2>RESUMEN</h2><small id="activo">—</small></div>
+        <div class="tot">
+          <div><div class="n oro" id="t-valor">$0</div><div class="etq">Valor procesado</div></div>
+          <div><div class="n" id="t-monedas">0</div><div class="etq">Monedas</div></div>
+          <div><div class="n" id="t-peso">0<small>g</small></div><div class="etq">Peso aprox.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CENTRO: JARVIS ============ -->
+    <section class="col centro">
+      <div class="panel nucleo">
+        <div class="nuc-titulo">NÚCLEO · J.A.R.V.I.S.</div>
+        <div class="nuc-modelo" id="nuc-modelo">—</div>
+        <canvas id="nucleo" aria-label="Núcleo neuronal de JARVIS"></canvas>
+        <div class="nuc-estado"><b id="nuc-estado">EN ESPERA</b><small id="nuc-sub">Presiona el micrófono o la tecla J para hablar</small></div>
+      </div>
+      <div class="panel chat">
+        <div class="clave" id="clave">
+          <b>Conecta el cerebro de JARVIS (Gemini, gratis)</b>
+          <ol>
+            <li>Abre <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> con tu cuenta de Google.</li>
+            <li>Pulsa <i>Create API key</i> y cópiala.</li>
+            <li>Pégala aquí. Se guarda en tu PC, fuera del proyecto.</li>
+          </ol>
+          <div class="fila"><input type="password" id="clave-in" placeholder="AIza…" autocomplete="off"><button class="btn" id="clave-ok">GUARDAR</button></div>
+          <div id="clave-msg" style="margin-top:6px;font-size:13px"></div>
+        </div>
+        <div class="conv" id="conv"></div>
+        <div class="sugerencias" id="sug">
+          <button>¿Cuántas monedas llevamos?</button>
+          <button>¿Qué servos se han movido?</button>
+          <button>¿Hacia dónde va el carrito?</button>
+          <button>Explícame el firmware de la ESP32-S3</button>
+          <button>¿Cómo reconoce las monedas?</button>
+        </div>
+        <div class="entrada">
+          <button class="mic" id="mic" title="Hablar con JARVIS (tecla J)" aria-label="Hablar con JARVIS">
+            <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2z"/></svg>
+          </button>
+          <input id="texto" placeholder="Escríbele a JARVIS…" autocomplete="off">
+          <button class="btn" id="enviar">ENVIAR</button>
+        </div>
+        <div class="ajustes">
+          <label class="sw"><input type="checkbox" id="op-voz" checked><i></i>Voz de JARVIS</label>
+          <label class="sw"><input type="checkbox" id="op-avisos" checked><i></i>Avisos hablados</label>
+          <select id="voces" title="Voz"></select>
+          <button class="btn" id="olvidar" style="padding:4px 9px;font-size:9.5px">NUEVA CONVERSACIÓN</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DERECHA: carrito y planta ============ -->
+    <section class="col der">
+      <div class="panel" id="car-panel">
+        <div class="ph"><h2>CARRITO DE TRANSPORTE</h2><small id="car-host">—</small></div>
+        <div class="car" id="car-box">
+          <div class="pad" id="pad">
+            <button data-d="FL">&#8598;</button><button data-d="F">&#9650;</button><button data-d="FR">&#8599;</button>
+            <button data-d="L">&#9664;</button><button class="stop" id="car-stop">PARAR</button><button data-d="R">&#9654;</button>
+            <button data-d="BL">&#8601;</button><button data-d="B">&#9660;</button><button data-d="BR">&#8600;</button>
+          </div>
+          <div class="car-info">
+            <div class="etq">Dirección actual</div>
+            <div class="car-dir" id="car-dir">—</div>
+            <div class="car-sub" id="car-ult">Sin movimientos todavía</div>
+            <div class="rango">Velocidad<input type="range" id="car-vel" min="10" max="100" step="5" value="50"><b id="car-vel-t">50 %</b></div>
+            <div class="car-sub">Mantén presionado · teclado: flechas / WASD · espacio = parar</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="s3-panel">
+        <div class="ph"><h2>BANDA Y CLASIFICACIÓN</h2><small id="s3-host">—</small></div>
+        <div class="banda" id="banda-box">
+          <span class="etq">Banda</span>
+          <div class="rango"><input type="range" id="banda-vel" min="0" max="100" step="5" value="50"><b id="banda-t">—</b></div>
+          <button class="btn rojo" id="banda-parar">PARAR</button>
+          <button class="btn" id="banda-seguir">REANUDAR</button>
+        </div>
+        <div class="servos" id="servos"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="cont" id="cont"></div>
+
+  <div class="doble">
+    <div class="panel"><div class="ph"><h2>ÚLTIMAS MONEDAS CONTADAS</h2><small id="hist-n"></small></div>
+      <div class="hist" id="hist"><div class="vacio">Aún no se ha contado ninguna moneda.</div></div></div>
+    <div class="panel"><div class="ph"><h2>BITÁCORA DEL SISTEMA</h2><small>eventos en vivo</small></div>
+      <div class="bit" id="bit"></div></div>
+  </div>
+
+  <footer><span>Sistema de Logística de Monedas Inteligentes · Faber Rodríguez · David Felipe Farfán · Kevin Castelblanco</span>
+    <a href="/clasico">Interfaz clásica</a></footer>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const pesos = v => "$" + Math.round(v).toLocaleString("es-CO");
+const LS = {get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch{return d}},
+            set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const esLocal = ["localhost","127.0.0.1","[::1]"].includes(location.hostname);
+
+const ESTILO = {
+  "1000_nueva":{c1:"#D9DCE2",c2:"#D8B25C",txt:"1000",tag:"NUEVA"}, "500_nueva":{c1:"#D8B25C",c2:"#CFD3DA",txt:"500",tag:"NUEVA"},
+  "500_antigua":{c1:"#C9A45A",c2:"#BFC3C9",txt:"500",tag:"ANTIGUA"}, "200_nueva":{c1:"#DDBB66",c2:"#DDBB66",txt:"200",tag:"NUEVA"},
+  "200_antigua":{c1:"#CDB27A",c2:"#CDB27A",txt:"200",tag:"ANTIGUA"}, "100_nueva":{c1:"#D6AE58",c2:"#D6AE58",txt:"100",tag:"NUEVA"},
+  "100_antigua":{c1:"#BFC2C7",c2:"#BFC2C7",txt:"100",tag:"ANTIGUA"}, "50_nueva":{c1:"#C9CDD3",c2:"#C9CDD3",txt:"50",tag:"NUEVA"},
+  "50_antigua":{c1:"#C8A863",c2:"#C8A863",txt:"50",tag:"ANTIGUA"},
+};
+const ORDEN = Object.keys(ESTILO);
+function moneda(clase, px){
+  const e = ESTILO[clase] || {c1:"#333",c2:"#333",txt:"?",tag:""};
+  return `<div class="coin" style="width:${px}px;height:${px}px;--c1:${e.c1};--c2:${e.c2};font-size:${Math.round(px*.27)}px">${e.txt}<span class="tag">${e.tag}</span></div>`;
+}
+let toastT;
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("ver");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("ver"),2000)}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+// ======================================================================
+// Núcleo neuronal (canvas)
+// ======================================================================
+const Nucleo = (() => {
+  const cv = $("nucleo"), ctx = cv.getContext("2d");
+  const N = 170, PH = Math.PI * (3 - Math.sqrt(5));
+  const pts = [];
+  for (let i = 0; i < N; i++){
+    const y = 1 - (i / (N - 1)) * 2, r = Math.sqrt(1 - y*y), th = i * PH;
+    const k = 0.82 + Math.random() * 0.3;            // algunos nodos hacia adentro: aspecto de red
+    pts.push({x: Math.cos(th)*r*k, y: y*k, z: Math.sin(th)*r*k});
+  }
+  const aristas = [];
+  pts.forEach((p, i) => {
+    const d = pts.map((q, j) => [j, (p.x-q.x)**2 + (p.y-q.y)**2 + (p.z-q.z)**2]).filter(a => a[0] !== i).sort((a,b) => a[1]-b[1]);
+    for (let k = 0; k < 3; k++) if (d[k][0] > i) aristas.push([i, d[k][0]]);
+  });
+  let pulsos = [], estado = "espera", nivel = 0, nivelObj = 0, rot = 0, giroAnillo = 0, ultimo = performance.now();
+  const ondas = [];
+  const VEL = {espera: .16, escuchando: .32, pensando: 1.15, hablando: .5};
+  function tam(){
+    const dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== Math.round(w*dpr) || cv.height !== Math.round(h*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); }
+    return [w, h, dpr];
+  }
+  function cuadro(t){
+    const dt = Math.min(.05, (t - ultimo) / 1000); ultimo = t;
+    const [W, H, dpr] = tam();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    nivel += (nivelObj - nivel) * Math.min(1, dt * 9);
+    if (estado !== "escuchando") nivelObj *= Math.pow(.25, dt);
+    if (estado === "hablando") nivelObj = Math.max(nivelObj, .25 + .18 * Math.sin(t/90) + .12 * Math.sin(t/37));
+    rot += dt * VEL[estado]; giroAnillo += dt * (estado === "pensando" ? 1.6 : .35);
+    const cx = W/2, cy = H/2 - 8, R = Math.min(W, H) * .31 * (1 + nivel*.13 + .012*Math.sin(t/700));
+    const tilt = .42 + .08*Math.sin(t/4000), ct = Math.cos(tilt), st = Math.sin(tilt), cr = Math.cos(rot), sr = Math.sin(rot);
+    // halo
+    let g = ctx.createRadialGradient(cx, cy, R*.1, cx, cy, R*1.9);
+    g.addColorStop(0, `rgba(62,232,255,${.22 + nivel*.25})`); g.addColorStop(.5, "rgba(20,120,180,.08)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R*1.9, 0, 7); ctx.fill();
+    // anillos HUD
+    ctx.lineCap = "round";
+    const anillo = (rad, seg, hueco, ancho, alfa, ang) => {
+      ctx.lineWidth = ancho; ctx.strokeStyle = `rgba(62,232,255,${alfa})`;
+      const paso = Math.PI*2/seg;
+      for (let i = 0; i < seg; i++){ ctx.beginPath(); ctx.arc(cx, cy, rad, ang + i*paso, ang + (i+1)*paso - hueco); ctx.stroke(); }
+    };
+    anillo(R*1.42, 3, .55, 2.2, .55, giroAnillo);
+    anillo(R*1.58, 36, .1, 1, .3, -giroAnillo*.6);
+    anillo(R*1.24, 6, .9, 1.4, .4, -giroAnillo*1.4);
+    // marcas tipo reloj
+    ctx.strokeStyle = "rgba(62,232,255,.35)"; ctx.lineWidth = 1;
+    for (let i = 0; i < 72; i++){
+      const a = i/72*Math.PI*2 + giroAnillo*.2, l = i % 6 === 0 ? 10 : 4;
+      ctx.beginPath(); ctx.moveTo(cx + Math.cos(a)*R*1.72, cy + Math.sin(a)*R*1.72); ctx.lineTo(cx + Math.cos(a)*(R*1.72 + l), cy + Math.sin(a)*(R*1.72 + l)); ctx.stroke();
+    }
+    // ondas al escuchar
+    if (estado === "escuchando" && Math.random() < dt * (2 + nivel*8)) ondas.push({r: R*.9, a: .5});
+    for (let i = ondas.length - 1; i >= 0; i--){
+      const o = ondas[i]; o.r += dt*R*.9; o.a -= dt*.45;
+      if (o.a <= 0){ ondas.splice(i, 1); continue; }
+      ctx.strokeStyle = `rgba(62,232,255,${o.a})`; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(cx, cy, o.r, 0, 7); ctx.stroke();
+    }
+    // proyeccion de la red
+    const P = pts.map(p => {
+      const x1 = p.x*cr - p.z*sr, z1 = p.x*sr + p.z*cr;
+      const y2 = p.y*ct - z1*st, z2 = p.y*st + z1*ct;
+      const f = 1 / (1.75 - z2*.55);
+      return {x: cx + x1*R*f, y: cy + y2*R*f, z: z2};
+    });
+    const colPensar = estado === "pensando";
+    ctx.lineWidth = .8;
+    for (const [a, b] of aristas){
+      const pa = P[a], pb = P[b], d = (pa.z + pb.z)/2;
+      ctx.strokeStyle = `rgba(${colPensar ? "150,220,255" : "62,232,255"},${.08 + (d+1)*.17 + nivel*.15})`;
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+    }
+    // pulsos que viajan por la red
+    const tasa = {espera: 2, escuchando: 5, pensando: 26, hablando: 12}[estado];
+    if (Math.random() < dt*tasa) for (let k = 0; k < (colPensar ? 3 : 1); k++) pulsos.push({e: aristas[(Math.random()*aristas.length)|0], t: 0, v: .8 + Math.random()*1.4});
+    for (let i = pulsos.length - 1; i >= 0; i--){
+      const pu = pulsos[i]; pu.t += dt*pu.v;
+      if (pu.t >= 1){ pulsos.splice(i, 1); continue; }
+      const pa = P[pu.e[0]], pb = P[pu.e[1]], x = pa.x + (pb.x - pa.x)*pu.t, y = pa.y + (pb.y - pa.y)*pu.t;
+      const rg = ctx.createRadialGradient(x, y, 0, x, y, 7);
+      rg.addColorStop(0, colPensar ? "rgba(255,226,160,.95)" : "rgba(220,250,255,.95)"); rg.addColorStop(1, "rgba(62,232,255,0)");
+      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill();
+    }
+    // nodos
+    for (const p of P){
+      const d = (p.z + 1)/2;
+      ctx.fillStyle = `rgba(${170 + d*85|0},${240 + d*15|0},255,${.25 + d*.7})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, .7 + d*1.9 + nivel*.8, 0, 7); ctx.fill();
+    }
+    // nucleo central
+    const rc = R*(.2 + nivel*.17);
+    g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rc*2.2);
+    g.addColorStop(0, "rgba(255,255,255,.95)"); g.addColorStop(.25, "rgba(166,246,255,.85)"); g.addColorStop(.6, "rgba(62,232,255,.25)"); g.addColorStop(1, "rgba(62,232,255,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rc*2.2, 0, 7); ctx.fill();
+    requestAnimationFrame(cuadro);
+  }
+  requestAnimationFrame(cuadro);
+  const ETQ = {espera: ["EN ESPERA", "Presiona el micrófono o la tecla J para hablar"], escuchando: ["ESCUCHANDO", "Habla ahora…"],
+               pensando: ["PROCESANDO", "Consultando el sistema"], hablando: ["RESPONDIENDO", ""]};
+  return {
+    estado(e, sub){ estado = e; $("nuc-estado").textContent = ETQ[e][0]; $("nuc-sub").textContent = sub ?? ETQ[e][1]; },
+    nivel(v){ nivelObj = Math.max(nivelObj, Math.min(1, v)); },
+    get actual(){ return estado; },
+  };
+})();
+
+// ======================================================================
+// Voz: síntesis (JARVIS habla) y reconocimiento (micrófono)
+// ======================================================================
+const Voz = (() => {
+  const s = window.speechSynthesis;
+  let voz = null, cola = [], hablando = false, alTerminar = null;
+  const PREF = ["Gonzalo", "Jorge", "Alvaro", "Álvaro", "Pablo", "Raul", "Raúl", "Diego", "Enrique", "Andrés", "Carlos", "Google español de Estados Unidos", "Google español"];
+  function cargar(){
+    if (!s) return;
+    const vs = s.getVoices().filter(v => /^es/i.test(v.lang));
+    const sel = $("voces"); const guardada = LS.get("voz", "");
+    sel.innerHTML = vs.map(v => `<option value="${esc(v.name)}">${esc(v.name.replace(/Microsoft |Online \(Natural\) - /g, ""))} (${v.lang})</option>`).join("") || "<option>Sin voces en español</option>";
+    voz = vs.find(v => v.name === guardada) || PREF.map(n => vs.find(v => v.name.includes(n))).find(Boolean) || vs.find(v => /es-(CO|MX|US|419)/i.test(v.lang)) || vs[0] || null;
+    if (voz) sel.value = voz.name;
+  }
+  if (s){ cargar(); s.onvoiceschanged = cargar; }
+  $("voces").onchange = e => { const v = s.getVoices().find(x => x.name === e.target.value); if (v){ voz = v; LS.set("voz", v.name); } };
+  function limpiar(t){
+    return t.replace(/J\.A\.R\.V\.I\.S\.?/g, "Jarvis").replace(/[*_#`>|]/g, " ").replace(/\[\[.*?\]\]/g, "")
+            .replace(/\$\s?([\d.]+)/g, "$1 pesos").replace(/\s+/g, " ").trim();
+  }
+  function siguiente(){
+    if (!s || hablando) return;
+    const t = cola.shift();
+    if (!t){ if (alTerminar){ const f = alTerminar; alTerminar = null; f(); } return; }
+    const u = new SpeechSynthesisUtterance(t);
+    if (voz){ u.voice = voz; u.lang = voz.lang; } else u.lang = "es-CO";
+    u.rate = 1.04; u.pitch = .82;
+    hablando = true;
+    // si el navegador no arranca a hablar en 4 s (sin voces, motor trabado) se sigue sin voz
+    let vigia = setTimeout(() => { s.cancel(); fin(); }, 4000);
+    let terminado = false;
+    function fin(){ if (terminado) return; terminado = true; clearTimeout(vigia); hablando = false;
+      if (!cola.length && Nucleo.actual === "hablando" && !ocupado) Nucleo.estado("espera"); siguiente(); }
+    u.onstart = () => { clearTimeout(vigia); vigia = setTimeout(fin, 30000); if (Nucleo.actual !== "escuchando") Nucleo.estado("hablando"); };
+    u.onboundary = () => Nucleo.nivel(.75);
+    u.onend = u.onerror = fin;
+    s.speak(u);
+  }
+  return {
+    decir(t){ if (!s) return; t = limpiar(t); if (!t) return; cola.push(t); siguiente(); },
+    callar(){ cola = []; alTerminar = null; if (s) s.cancel(); hablando = false; },
+    get ocupada(){ return hablando || cola.length > 0; },
+    luego(f){ if (!hablando && !cola.length) f(); else alTerminar = f; },
+  };
+})();
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, escuchando = false, micStream = null, micAnim = null;
+function nivelMic(){
+  if (!navigator.mediaDevices?.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({audio: true}).then(st => {
+    micStream = st;
+    const ac = new (window.AudioContext || window.webkitAudioContext)(), an = ac.createAnalyser();
+    ac.createMediaStreamSource(st).connect(an); an.fftSize = 512;
+    const buf = new Uint8Array(an.fftSize);
+    const loop = () => {
+      if (!escuchando){ st.getTracks().forEach(t => t.stop()); ac.close(); return; }
+      an.getByteTimeDomainData(buf); let m = 0; for (const v of buf) m = Math.max(m, Math.abs(v - 128));
+      Nucleo.nivel(m / 70); micAnim = requestAnimationFrame(loop);
+    };
+    loop();
+  }).catch(() => {});
+}
+function escuchar(){
+  if (escuchando){ rec && rec.stop(); return; }
+  if (!SR){ sistema("Este navegador no reconoce voz: usa Google Chrome o Microsoft Edge en el PC.", "mal"); return; }
+  if (!window.isSecureContext){ sistema("El micrófono solo funciona en el PC de la interfaz (http://localhost:8000).", "mal"); return; }
+  Voz.callar();
+  rec = new SR(); rec.lang = "es-CO"; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 1;
+  let final = "", burbuja = null;
+  rec.onresult = e => {
+    let interino = "";
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      if (e.results[i].isFinal) final += e.results[i][0].transcript; else interino += e.results[i][0].transcript;
+    }
+    if (!burbuja) burbuja = mensaje("yo interino", "");
+    burbuja.textContent = (final + interino).trim();
+  };
+  rec.onerror = e => {
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") sistema("Permite el uso del micrófono en el navegador (ícono del candado).", "mal");
+    else if (e.error === "no-speech") sistema("No escuché nada. Intenta de nuevo.", "");
+    else if (e.error === "network") sistema("El reconocimiento de voz necesita internet.", "mal");
+  };
+  rec.onend = () => {
+    escuchando = false; $("mic").classList.remove("on");
+    if (burbuja) burbuja.remove();
+    if (final.trim()) preguntar(final.trim());
+    else if (!ocupado) Nucleo.estado("espera");
+  };
+  try { rec.start(); } catch { return; }
+  escuchando = true; $("mic").classList.add("on"); Nucleo.estado("escuchando"); nivelMic();
+}
+$("mic").onclick = escuchar;
+
+// ======================================================================
+// Conversación con JARVIS (respuesta en streaming, frase a frase)
+// ======================================================================
+const conv = $("conv");
+function mensaje(tipo, texto){
+  const d = document.createElement("div"); d.className = "msg " + tipo; d.textContent = texto;
+  conv.appendChild(d); while (conv.children.length > 60) conv.firstChild.remove();
+  conv.scrollTop = conv.scrollHeight; return d;
+}
+function sistema(texto, clase){ mensaje("sis " + (clase || ""), texto); }
+let ocupado = false;
+async function preguntar(texto){
+  texto = texto.trim(); if (!texto || ocupado) return;
+  ocupado = true; Voz.callar();
+  mensaje("yo", texto); $("texto").value = "";
+  const b = mensaje("jv", ""); b.innerHTML = '<span class="escribe"><span></span><span></span><span></span></span>';
+  Nucleo.estado("pensando");
+  let todo = "", pendiente = "", primero = true;
+  const hablar = $("op-voz").checked;
+  const soltarFrase = (fin) => {
+    // manda a la voz las frases completas (no espera a que termine la respuesta)
+    const re = /^([\s\S]*?[.!?…:;])(\s+|$)/;
+    let m;
+    while ((m = pendiente.match(re)) && (m[1].length > 18 || fin)){ if (hablar) Voz.decir(m[1]); pendiente = pendiente.slice(m[0].length); }
+    if (fin && pendiente.trim()){ if (hablar) Voz.decir(pendiente); pendiente = ""; }
+  };
+  try {
+    const r = await fetch("/jarvis/preguntar", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({texto})});
+    const lector = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+    while (true){
+      const {value, done} = await lector.read(); if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0){
+        const linea = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!linea) continue;
+        let ev; try { ev = JSON.parse(linea); } catch { continue; }
+        if (ev.tipo === "texto"){
+          if (primero){ b.textContent = ""; primero = false; if (!hablar) Nucleo.estado("hablando", ""); }
+          todo += ev.t; pendiente += ev.t; b.textContent = todo.replace(/\*\*/g, "").trimEnd();
+          conv.scrollTop = conv.scrollHeight; soltarFrase(false);
+        } else if (ev.tipo === "accion"){
+          sistema(`${ev.ok ? "✓" : "✗"} ${ev.msg}`, ev.ok ? "ok" : "mal");
+          if (ev.ok && ev.ui){ $("op-avisos").checked = ev.nombre === "activar_avisos"; LS.set("avisos", $("op-avisos").checked); }
+          if (!ev.ok && hablar) Voz.decir("No pude completarlo: " + ev.msg);
+        } else if (ev.tipo === "fin"){
+          $("nuc-modelo").textContent = ev.modo === "gemini" ? `${ev.modelo} · ${(ev.ms/1000).toFixed(1)} s` : "modo local (sin Gemini)";
+        } else if (ev.tipo === "error"){
+          sistema("Error: " + ev.msg, "mal");
+        }
+      }
+    }
+  } catch (e){
+    sistema("No hay conexión con el servidor de la interfaz.", "mal");
+  }
+  if (primero) b.remove();
+  soltarFrase(true);
+  ocupado = false;
+  if (!hablar || !Voz.ocupada) Nucleo.estado("espera");
+  else Voz.luego(() => { if (!ocupado && !escuchando) Nucleo.estado("espera"); });
+}
+$("enviar").onclick = () => preguntar($("texto").value);
+$("texto").addEventListener("keydown", e => { if (e.key === "Enter") preguntar($("texto").value); });
+$("sug").querySelectorAll("button").forEach(b => b.onclick = () => preguntar(b.textContent));
+$("olvidar").onclick = () => { fetch("/jarvis/olvidar", {method: "POST"}); conv.innerHTML = ""; sistema("Nueva conversación"); };
+$("op-voz").checked = LS.get("vozOn", true); $("op-avisos").checked = LS.get("avisos", true);
+$("op-voz").onchange = e => { LS.set("vozOn", e.target.checked); if (!e.target.checked) Voz.callar(); };
+$("op-avisos").onchange = e => LS.set("avisos", e.target.checked);
+
+// --- clave de Gemini ---
+async function info(){
+  try {
+    const i = await (await fetch("/jarvis/info")).json();
+    $("ch-gem").className = "chip " + (i.clave ? "on" : "off");
+    $("clave").classList.toggle("ver", !i.clave);
+    $("nuc-modelo").textContent = i.clave ? `${i.modelo} · ${i.documentos} documentos` : "sin clave de Gemini";
+    if (!i.clave && !esLocal) $("clave-msg").textContent = "Configúrala desde el PC de la interfaz (localhost).";
+    return i;
+  } catch { return null; }
+}
+$("clave-ok").onclick = async () => {
+  const k = $("clave-in").value.trim(); if (!k) return;
+  $("clave-msg").textContent = "Verificando…";
+  try {
+    const r = await (await fetch("/jarvis/clave", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({clave: k})})).json();
+    $("clave-msg").textContent = r.msg; $("clave-in").value = "";
+    if (r.ok){ await info(); sistema("Cerebro de JARVIS conectado", "ok"); Voz.decir("Sistemas en línea, señor. A su servicio."); }
+  } catch { $("clave-msg").textContent = "No se pudo guardar."; }
+};
+
+// ======================================================================
+// Avisos hablados (eventos de la bitácora)
+// ======================================================================
+let monedasAviso = [], avisoT = null;
+function aviso(ev){
+  if (!$("op-avisos").checked || !ev.voz) return;
+  if (ev.tipo === "moneda"){
+    if (ocupado || escuchando || Voz.ocupada) return;         // no interrumpe una respuesta
+    monedasAviso.push(ev); clearTimeout(avisoT);
+    avisoT = setTimeout(() => {
+      const l = monedasAviso; monedasAviso = [];
+      if (ocupado || escuchando) return;
+      Voz.decir(l.length === 1 ? l[0].voz : `${l.length} monedas, ${l.reduce((a, e) => a + (e.valor || 0), 0)} pesos`);
+    }, 1200);
+  } else if (!escuchando){
+    Voz.decir(ev.voz);
+  }
+}
+
+// ======================================================================
+// Paneles: contadores, carrito, servos, bitácora
+// ======================================================================
+let masas = {};
+function construir(){
+  $("cont").innerHTML = ORDEN.map(c => `<div class="cnt" id="cnt-${c}">${moneda(c, 46)}
+    <div class="nom">${c.startsWith("1000") ? "$1.000" : "$" + c.split("_")[0]} ${c.endsWith("nueva") ? "nueva" : "antigua"}</div>
+    <div class="n" id="n-${c}">0</div><div class="g" id="g-${c}">0 g</div></div>`).join("");
+  $("servos").innerHTML = [1,2,3,4].map(n => `<div class="sv" id="sv-${n}">
+    <div class="sv-cab"><b>S${n}</b><span id="sv-est-${n}">—</span></div>
+    <div class="sv-vaso" id="sv-vaso-${n}">${["Vaso $1.000 y $500","Vaso $200","Vaso $100","Vaso $50"][n-1]}</div>
+    <svg viewBox="0 0 160 58" id="sv-g-${n}"></svg>
+    <div class="sv-pie"><span id="sv-n-${n}">0 monedas</span><button data-n="${n}">PROBAR</button></div></div>`).join("");
+  $("servos").querySelectorAll("button[data-n]").forEach(b => b.onclick = () => accion("probar_servo", b.dataset.n));
+}
+function medidor(n, ang, rep, des){
+  // semicírculo de 0° a 180°: aguja = ángulo actual, marcas = reposo y desvío
+  const P = (a, r) => { const t = (180 - a) * Math.PI / 180; return [50 + Math.cos(t)*r, 52 - Math.sin(t)*r]; };
+  const marca = (a, col) => { if (a == null) return ""; const [x, y] = P(a, 44), [x2, y2] = P(a, 35);
+    return `<line x1="${x}" y1="${y}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="3"/>`; };
+  let aguja = "";
+  if (ang != null){ const [x, y] = P(ang, 40); aguja = `<line x1="50" y1="52" x2="${x}" y2="${y}" stroke="#a6f6ff" stroke-width="2"/><circle cx="50" cy="52" r="3.5" fill="#3ee8ff"/>`; }
+  $("sv-g-" + n).innerHTML = `<path d="M6 52 A44 44 0 0 1 94 52" fill="none" stroke="rgba(62,232,255,.25)" stroke-width="2"/>
+    ${marca(rep, "#3dffb4")}${marca(des, "#ffc65c")}${aguja}
+    <text x="157" y="30" text-anchor="end" fill="#d8f5ff" font-size="19" font-weight="600" font-family="JetBrains Mono,monospace">${ang == null ? "—" : ang + "°"}</text>
+    <text x="157" y="47" text-anchor="end" font-size="9.5" font-family="JetBrains Mono,monospace"><tspan fill="#3dffb4">R ${rep ?? "—"}</tspan><tspan fill="#7ea6ba"> · </tspan><tspan fill="#ffc65c">D ${des ?? "—"}</tspan></text>`;
+}
+async function accion(nombre, arg = ""){
+  try {
+    const r = await (await fetch(`/accion?nombre=${nombre}&arg=${encodeURIComponent(arg)}`, {method: "POST"})).json();
+    if (!r.ok) toast(r.msg.toUpperCase());
+  } catch { toast("SIN CONEXIÓN"); }
+}
+$("banda-parar").onclick = () => accion("parar_banda");
+$("banda-seguir").onclick = () => accion("reanudar_banda");
+$("banda-vel").addEventListener("input", e => $("banda-t").textContent = e.target.value + " %");
+$("banda-vel").addEventListener("change", e => { accion("velocidad_banda", e.target.value); e.target.blur(); });
+$("reset").onclick = () => fetch("/reset", {method: "POST"});
+
+// --- carrito: se repite la orden cada 100 ms mientras se mantiene ---
+let carDir = "S", carTimer = null, carActivo = false;
+const carEnviar = d => fetch(`/carrito/cmd?d=${d}&s=${$("car-vel").value}`, {method: "POST"}).catch(() => {});
+const carMarcar = d => document.querySelectorAll("#pad button[data-d]").forEach(b => b.classList.toggle("on", b.dataset.d === d));
+function carMantener(d){ if (!carActivo || (d === carDir && carTimer)) return; clearInterval(carTimer); carDir = d; carMarcar(d); carEnviar(d); carTimer = setInterval(() => carEnviar(carDir), 100); }
+function carSoltar(){ clearInterval(carTimer); carTimer = null; carMarcar(""); if (carDir !== "S"){ carDir = "S"; carEnviar("S"); } }
+function carParar(){ clearInterval(carTimer); carTimer = null; carDir = "S"; carMarcar(""); fetch("/carrito/parar", {method: "POST"}).catch(() => {}); }
+document.querySelectorAll("#pad button[data-d]").forEach(b => {
+  b.addEventListener("pointerdown", e => { b.setPointerCapture(e.pointerId); carMantener(b.dataset.d); });
+  ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => b.addEventListener(ev, carSoltar));
+  b.addEventListener("contextmenu", e => e.preventDefault());
+});
+$("car-stop").onclick = carParar;
+$("car-vel").addEventListener("input", e => $("car-vel-t").textContent = e.target.value + " %");
+$("car-vel").addEventListener("change", e => e.target.blur());
+const teclas = new Set();
+function carTeclado(){
+  const f = teclas.has("w") || teclas.has("arrowup"), b = teclas.has("s") || teclas.has("arrowdown");
+  const l = teclas.has("a") || teclas.has("arrowleft"), r = teclas.has("d") || teclas.has("arrowright");
+  let d = "S";
+  if (f && !b) d = l && !r ? "FL" : r && !l ? "FR" : "F";
+  else if (b && !f) d = l && !r ? "BL" : r && !l ? "BR" : "B";
+  else if (l && !r) d = "L"; else if (r && !l) d = "R";
+  d === "S" ? carSoltar() : carMantener(d);
+}
+const escribiendo = () => ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName) && document.activeElement.type !== "range" && document.activeElement.type !== "checkbox";
+addEventListener("keydown", e => {
+  if (escribiendo()) return;
+  const k = e.key.toLowerCase();
+  if (k === "j" && !e.repeat){ e.preventDefault(); escuchar(); return; }
+  if (k === "escape"){ Voz.callar(); if (!ocupado) Nucleo.estado("espera"); return; }
+  if (!carActivo) return;
+  if (k === " "){ e.preventDefault(); teclas.clear(); carParar(); return; }
+  if (!["w","a","s","d","arrowup","arrowdown","arrowleft","arrowright"].includes(k)) return;
+  e.preventDefault(); teclas.add(k); carTeclado();
+});
+addEventListener("keyup", e => { teclas.delete(e.key.toLowerCase()); if (carTimer || !teclas.size) carTeclado(); });
+addEventListener("blur", () => { teclas.clear(); carSoltar(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden){ teclas.clear(); carSoltar(); } });
+
+// ======================================================================
+// Estado en vivo (WebSocket)
+// ======================================================================
+let conteoPrevio = {}, primeraVez = true;
+function chip(id, estado, texto){ const c = $(id); c.className = "chip " + estado; if (texto) c.lastChild.textContent = texto; }
+function hace(s){ return s < 60 ? `hace ${Math.round(s)} s` : `hace ${Math.round(s/60)} min`; }
+
+function render(s){
+  // conexiones
+  chip("ch-cam", s.conectada ? "on" : "off");
+  chip("ch-ia", s.fps_inferencia > 0 ? "on" : "off", `VISIÓN IA · ${s.fps_inferencia}/s`);
+  chip("ch-s3", !s.s3 ? "na" : s.s3.conectada ? "on" : "off");
+  chip("ch-car", !s.carrito ? "na" : s.carrito.conectada ? "on" : "off");
+  $("video-box").classList.toggle("off", !s.conectada);
+  $("fps").textContent = `${s.fps_camara} fps · IA ${s.fps_inferencia}/s`;
+  $("activo").textContent = "activo " + (s.activo_s < 3600 ? Math.floor(s.activo_s/60) + " min" : (s.activo_s/3600).toFixed(1) + " h");
+
+  // en vista
+  const v = s.en_vista || [];
+  $("vista-v").textContent = `${v.length} · ${pesos(s.valor_en_vista)}`;
+  $("vista").innerHTML = v.length ? v.map(m => `<div class="vrow">${moneda(m.clase, 32)}
+      <div><b>${esc(m.etiqueta)}</b><small>#${m.id} · ${(m.confianza*100).toFixed(0)} %</small></div>
+      <span class="est ${m.contada ? "ok" : "wait"}">${m.contada ? "CONTADA" : (m.progreso*100).toFixed(0) + " %"}</span></div>`).join("")
+    : '<div class="vacio">No hay monedas frente a la cámara.</div>';
+  const h = $("hint");
+  if (!s.conectada){ h.className = "hint"; h.textContent = "Sin señal de la ESP32-CAM…"; }
+  else if (!v.length){ h.className = "hint"; h.textContent = "Esperando monedas en la banda…"; }
+  else if (v.every(m => m.contada)){ h.className = "hint ok"; h.textContent = `✓ ${v.length} en vista, todas contadas`; }
+  else { h.className = "hint conf"; h.textContent = `Confirmando ${v.filter(m => !m.contada).length} moneda(s)…`; }
+
+  // totales y contadores
+  $("t-valor").textContent = pesos(s.total_pesos);
+  $("t-monedas").textContent = s.total_monedas;
+  $("t-peso").innerHTML = `${(s.peso_total_g || 0).toFixed(1)}<small>g</small>`;
+  ORDEN.forEach(c => {
+    const n = s.conteo[c] || 0;
+    if ($("n-" + c).textContent !== String(n)){
+      $("n-" + c).textContent = n; $("g-" + c).textContent = ((masas[c] || 0) * n).toFixed(1) + " g";
+      if (!primeraVez && n > (conteoPrevio[c] || 0)){ const el = $("cnt-" + c); el.classList.remove("bump"); void el.offsetWidth; el.classList.add("bump"); }
+    }
+  });
+  conteoPrevio = {...s.conteo};
+
+  // historial de monedas
+  if (s.eventos && s.eventos.length){
+    const hist = $("hist"); if (hist.querySelector(".vacio")) hist.innerHTML = "";
+    s.eventos.forEach(ev => {
+      const d = document.createElement("div"); d.className = "ev";
+      d.innerHTML = `<img src="${ev.miniatura}" alt=""><b>${esc(ev.etiqueta)}</b><small>${ev.hora} · ${(ev.confianza*100).toFixed(0)} %</small>`;
+      hist.prepend(d);
+      if (!s.inicial) toast(`+ ${ev.etiqueta}`);
+    });
+    while (hist.children.length > 14) hist.lastChild.remove();
+  }
+
+  // bitácora
+  if (s.bitacora){
+    const bit = $("bit");
+    s.bitacora.forEach(ev => {
+      const d = document.createElement("div");
+      d.innerHTML = `<span class="h">${ev.hora}</span><span class="t t-${ev.tipo}">${ev.tipo.toUpperCase()}</span><span>${esc(ev.texto)}</span>`;
+      bit.prepend(d);
+      if (!primeraVez) aviso(ev);
+    });
+    while (bit.children.length > 80) bit.lastChild.remove();
+  }
+
+  // carrito
+  const c = s.carrito;
+  carActivo = !!c;
+  $("car-box").classList.toggle("inactivo", !c || !c.conectada);
+  if (!c){ $("car-dir").textContent = "DESACTIVADO"; $("car-host").textContent = "--sin-carrito"; }
+  else {
+    $("car-host").textContent = c.host;
+    const dir = $("car-dir");
+    dir.textContent = c.conectada ? (c.d === "S" ? "Detenido" : `${c.direccion} · ${c.v} %`) : "Sin conexión";
+    dir.classList.toggle("mueve", c.d !== "S");
+    $("car-ult").textContent = c.ultimo ? `Último: ${c.ultimo.direccion} ${c.ultimo.v} % · ${c.ultimo.duracion_s} s · ${hace(c.ultimo.hace_s)} · ${c.movimientos} mov.`
+                                        : "Sin movimientos todavía";
+  }
+
+  // banda y servos
+  const s3 = s.s3;
+  $("s3-panel").classList.toggle("inactivo", !s3 || !s3.conectada);
+  if (!s3){ $("s3-host").textContent = "--sin-servos"; }
+  else {
+    $("s3-host").textContent = s3.host + (s3.t_desvio_ms ? ` · desvío ${s3.t_desvio_ms} ms` : "");
+    if (s3.banda_vel != null){
+      $("banda-t").textContent = s3.banda_vel === 0 ? "PARADA" : s3.banda_vel + " %";
+      if (document.activeElement !== $("banda-vel")) $("banda-vel").value = s3.banda_vel;
+    }
+    s3.servos.forEach(sv => {
+      const card = $("sv-" + sv.n);
+      card.className = "sv" + (sv.activo ? " activo" : sv.en_espera ? " espera" : "");
+      $("sv-est-" + sv.n).textContent = sv.activo ? "DESVIANDO" : sv.en_espera ? "EN CAMINO" : "REPOSO";
+      $("sv-n-" + sv.n).textContent = `${sv.enviadas} mon.` + (sv.retardo_ms != null ? ` · ${(sv.retardo_ms/1000).toFixed(1)} s` : "");
+      const clave = [sv.angulo, sv.reposo, sv.desvio].join();
+      if (card.dataset.g !== clave){ card.dataset.g = clave; medidor(sv.n, sv.angulo, sv.reposo, sv.desvio); }
+    });
+  }
+  primeraVez = false;
+}
+
+function conectar(){
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onmessage = e => render(JSON.parse(e.data));
+  ws.onclose = () => { ["ch-cam","ch-ia","ch-s3","ch-car"].forEach(id => chip(id, "off")); setTimeout(conectar, 1500); };
+}
+
+// reloj
+setInterval(() => {
+  const d = new Date();
+  $("hora").textContent = d.toLocaleTimeString("es-CO", {hour12: false});
+  $("fecha").textContent = d.toLocaleDateString("es-CO", {weekday: "long", day: "numeric", month: "long"});
+}, 1000);
+
+(async () => {
+  construir();
+  [1,2,3,4].forEach(n => medidor(n, null, null, null));
+  try { masas = await (await fetch("/masas")).json(); } catch {}
+  conectar();
+  const i = await info();
+  sistema(i && i.clave ? "J.A.R.V.I.S. en línea" : "J.A.R.V.I.S. en modo local: falta la clave de Gemini", i && i.clave ? "ok" : "");
+  setInterval(info, 30000);
+})();
+</script>
+</body>
+</html>
